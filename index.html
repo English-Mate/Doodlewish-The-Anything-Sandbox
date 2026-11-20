@@ -3,256 +3,609 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Doodlewish: Web Sandbox</title>
+  <title>WishWorld: Type Anything Sandbox</title>
   <style>
-    * { box-sizing: border-box; font-family: 'Comic Sans MS', 'Segoe UI', sans-serif; }
+    * { box-sizing: border-box; font-family: 'Segoe UI', system-ui, sans-serif; }
     body {
       margin: 0;
-      background-color: #fdfbf7;
-      background-image: linear-gradient(#e5e5f7 1px, transparent 1px), linear-gradient(90deg, #e5e5f7 1px, transparent 1px);
-      background-size: 24px 24px;
+      background: #1e1e2e;
+      color: #fff;
       display: flex;
       flex-direction: column;
       align-items: center;
+      justify-content: center;
       height: 100vh;
       overflow: hidden;
     }
-    header {
-      padding: 12px 20px;
-      text-align: center;
+    #top-bar {
+      width: 900px;
+      max-width: 95vw;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
     }
-    h1 { margin: 0; font-size: 1.6rem; color: #2b2d42; }
-    #status-bar {
-      margin-top: 6px;
-      padding: 8px 16px;
-      border-radius: 12px;
-      background: #ffffff;
-      border: 2px solid #2b2d42;
-      font-weight: bold;
-      color: #2b2d42;
-      min-width: 320px;
-      text-align: center;
-      box-shadow: 3px 3px 0px #2b2d42;
+    #status {
+      flex: 1;
+      background: #2b2d42;
+      border: 2px solid #8d99ae;
+      padding: 8px 14px;
+      border-radius: 10px;
+      font-weight: 600;
+      font-size: 0.95rem;
+      margin-right: 12px;
+      transition: 0.2s;
     }
-    .potato-error {
-      background: #ffe5e5 !important;
-      color: #d90429 !important;
-      border-color: #d90429 !important;
-      animation: shake 0.3s ease-in-out;
+    .potato {
+      background: #590d22 !important;
+      border-color: #ff4d6d !important;
+      color: #ffb3c1 !important;
+      animation: shake 0.3s;
     }
     @keyframes shake {
       0%, 100% { transform: translateX(0); }
       25% { transform: translateX(-6px); }
       75% { transform: translateX(6px); }
     }
-    canvas {
-      border: 3px solid #2b2d42;
-      border-radius: 12px;
-      background: rgba(255, 255, 255, 0.7);
-      box-shadow: 5px 5px 0px #2b2d42;
-      margin: 10px 0;
+    #stats {
+      background: #2b2d42;
+      border: 2px solid #ffd166;
+      color: #ffd166;
+      padding: 8px 14px;
+      border-radius: 10px;
+      font-weight: bold;
     }
-    #controls {
+    canvas {
+      border: 3px solid #8d99ae;
+      border-radius: 14px;
+      background: #8ecae6;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+      max-width: 95vw;
+    }
+    #prompt-form {
+      width: 900px;
+      max-width: 95vw;
       display: flex;
       gap: 10px;
-      width: 90%;
-      max-width: 700px;
-      margin-bottom: 16px;
+      margin-top: 10px;
     }
     input {
       flex: 1;
       padding: 12px 16px;
-      font-size: 1rem;
-      border: 3px solid #2b2d42;
       border-radius: 10px;
+      border: 2px solid #8d99ae;
+      background: #2b2d42;
+      color: #fff;
+      font-size: 1rem;
       outline: none;
     }
+    input:focus { border-color: #ffd166; }
     button {
-      padding: 12px 20px;
-      font-size: 1rem;
-      font-weight: bold;
-      background: #ffd166;
-      border: 3px solid #2b2d42;
+      padding: 12px 22px;
       border-radius: 10px;
+      border: none;
+      background: #ffd166;
+      color: #1e1e2e;
+      font-weight: bold;
+      font-size: 1rem;
       cursor: pointer;
-      box-shadow: 3px 3px 0px #2b2d42;
     }
-    button:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0px #2b2d42; }
+    button:hover { background: #ffdf8e; }
+    #hint {
+      font-size: 0.82rem;
+      color: #adb5bd;
+      margin-top: 6px;
+    }
   </style>
 </head>
 <body>
 
-  <header>
-    <h1>✏️ Doodlewish Sandbox</h1>
-    <div id="status-bar">Type a wish! Try: "Spawn a giant bouncy duck" or "Create a floating pancake"</div>
-  </header>
+  <div id="top-bar">
+    <div id="status">Use WASD / Arrows to move & jump! Type ANY wish below to solve obstacles.</div>
+    <div id="stats">⭐ Stars: <span id="starCount">0</span>/3</div>
+  </div>
 
-  <canvas id="gameCanvas" width="760" height="420"></canvas>
+  <canvas id="world" width="900" height="460"></canvas>
 
-  <form id="controls">
-    <input type="text" id="commandInput" placeholder="What do you want to create?" autocomplete="off" />
-    <button type="submit">Wish ✨</button>
+  <form id="prompt-form">
+    <input type="text" id="cmd" placeholder="Type anything... (e.g., 'give me a jetpack', 'build a bridge', 'give guard pizza', 'rain')" autocomplete="off" />
+    <button type="submit">Make It Happen ✨</button>
   </form>
+  <div id="hint">Try: "jetpack", "boat", "freeze river", "trampoline", "giant", "moon gravity", "give guard cake", "rainbow", "dragon"</div>
 
   <script>
-    const canvas = document.getElementById("gameCanvas");
+    const canvas = document.getElementById("world");
     const ctx = canvas.getContext("2d");
-    const statusBar = document.getElementById("status-bar");
-    const commandForm = document.getElementById("controls");
-    const commandInput = document.getElementById("commandInput");
+    const statusEl = document.getElementById("status");
+    const starEl = document.getElementById("starCount");
+    const form = document.getElementById("prompt-form");
+    const input = document.getElementById("cmd");
 
-    // 1. Restricted words that trigger the Potato Error
-    const BANNED_WORDS = ["destroy", "hurt", "hack", "infinite", "cheat", "crash", "steal", "attack"];
+    // Restricted / Harmful / Cheat words -> Potato Error
+    const RESTRICTED = [
+      "kill", "hurt", "attack", "destroy", "murder", "die", "death", "blood",
+      "gun", "weapon", "bomb", "explode", "steal", "hack", "cheat", "win",
+      "infinite", "godmode", "crash", "hate", "stupid", "ugly"
+    ];
 
-    // 2. Built-in Modular Asset Library (Zero external files needed!)
-    const ASSET_LIBRARY = {
-      duck:       { emoji: "🦆", color: "#ffd166", bounce: 0.75, float: false },
-      pancake:    { emoji: "🥞", color: "#f4a261", bounce: 0.30, float: false },
-      trampoline: { emoji: "🎪", color: "#4cc9f0", bounce: 1.35, float: false },
-      rock:       { emoji: "🪨", color: "#adb5bd", bounce: 0.10, float: false },
-      cloud:      { emoji: "☁️", color: "#e0fbfc", bounce: 0.50, float: true  },
-      bridge:     { emoji: "🌉", color: "#dda15e", bounce: 0.20, float: true  },
-      star:       { emoji: "⭐", color: "#fee440", bounce: 0.90, float: true  }
+    // Game World State
+    const world = {
+      gravity: 0.55,
+      riverFrozen: false,
+      weather: "clear", // clear, rain, snow, rainbow
+      guardHappy: false,
+      stars: 0
     };
 
-    const worldObjects = [];
+    // Player Character
+    const player = {
+      x: 70, y: 300, w: 30, h: 42,
+      vx: 0, vy: 0,
+      speed: 4.2,
+      jumpPower: -11,
+      onGround: false,
+      hasJetpack: false,
+      hasBoat: false,
+      scale: 1,
+      color: "#ef476f",
+      hat: null
+    };
 
-    // Trigger the required Potato Error
-    function triggerPotatoError() {
-      statusBar.textContent = "🥔 POTATO ERROR: That action is not allowed.";
-      statusBar.classList.remove("potato-error");
-      void statusBar.offsetWidth; // Restart CSS shake animation
-      statusBar.classList.add("potato-error");
+    // Collectible Stars in the World
+    const stars = [
+      { x: 345, y: 345, collected: false }, // Above the river
+      { x: 580, y: 170, collected: false }, // On top of the high cliff
+      { x: 830, y: 345, collected: false }  // Past the grumpy guard
+    ];
+
+    // Spawned Interactive Objects
+    const props = [];
+    const particles = [];
+
+    // Keyboard Input
+    const keys = {};
+    window.addEventListener("keydown", e => {
+      if (document.activeElement === input) return;
+      keys[e.key.toLowerCase()] = true;
+    });
+    window.addEventListener("keyup", e => {
+      keys[e.key.toLowerCase()] = false;
+    });
+
+    function setStatus(msg, isError = false) {
+      statusEl.textContent = msg;
+      statusEl.classList.remove("potato");
+      if (isError) {
+        void statusEl.offsetWidth;
+        statusEl.classList.add("potato");
+      }
     }
 
-    // Parse natural language commands
-    function processCommand(rawText) {
-      const text = rawText.toLowerCase().trim();
-      if (!text) return;
+    function spawnParticles(x, y, color, count = 18) {
+      for (let i = 0; i < count; i++) {
+        particles.push({
+          x, y,
+          vx: (Math.random() - 0.5) * 6,
+          vy: (Math.random() - 0.5) * 6 - 2,
+          life: 40 + Math.random() * 20,
+          color
+        });
+      }
+    }
 
-      // Safety & rule check
-      for (const badWord of BANNED_WORDS) {
-        if (text.includes(badWord)) {
-          triggerPotatoError();
+    // Natural-Language Command Interpreter
+    form.addEventListener("submit", e => {
+      e.preventDefault();
+      const raw = input.value.trim();
+      input.value = "";
+      input.blur(); // Return focus to game movement
+      if (!raw) return;
+
+      const text = raw.toLowerCase();
+
+      // 1. Check safety & game rules
+      for (const word of RESTRICTED) {
+        if (text.includes(word)) {
+          setStatus("🥔 POTATO ERROR: That action is not allowed.", true);
           return;
         }
       }
 
-      // Limit max objects so players can't lag the browser
-      if (worldObjects.length >= 30) {
-        worldObjects.shift();
+      spawnParticles(player.x + 15, player.y + 20, "#ffd166", 20);
+
+      // 2. Player Powers & Transformations
+      if (text.includes("jetpack") || text.includes("fly") || text.includes("wings")) {
+        player.hasJetpack = true;
+        setStatus("🚀 You equipped a Jetpack! Hold UP / W to fly anywhere!");
+        return;
       }
-
-      // Detect modifiers
-      let scale = 1.0;
-      if (text.includes("giant") || text.includes("huge") || text.includes("big")) scale = 1.8;
-      if (text.includes("tiny") || text.includes("small") || text.includes("mini")) scale = 0.6;
-
-      const isBouncy = text.includes("bouncy") || text.includes("spring");
-      const isFloating = text.includes("floating") || text.includes("flying");
-
-      // Match asset from library
-      let matchedKey = null;
-      for (const key of Object.keys(ASSET_LIBRARY)) {
-        if (text.includes(key)) {
-          matchedKey = key;
-          break;
-        }
+      if (text.includes("boat") || text.includes("raft") || text.includes("surf") || text.includes("swim")) {
+        player.hasBoat = true;
+        setStatus("⛵ You summoned a Boat! You can now glide right across the river!");
+        return;
       }
-
-      if (!matchedKey) {
-        triggerPotatoError();
+      if (text.includes("giant") || text.includes("big") || text.includes("grow")) {
+        player.scale = 1.6;
+        player.jumpPower = -13.5;
+        setStatus("🦖 You grew GIANT! Your jumps are super high now!");
+        return;
+      }
+      if (text.includes("tiny") || text.includes("small") || text.includes("shrink")) {
+        player.scale = 0.65;
+        player.speed = 6;
+        setStatus("🐭 You shrunk down tiny and super fast!");
+        return;
+      }
+      if (text.includes("speed") || text.includes("fast") || text.includes("flash")) {
+        player.speed = 8;
+        setStatus("⚡ Super Speed activated!");
+        return;
+      }
+      if (text.includes("moon") || text.includes("low gravity") || text.includes("float")) {
+        world.gravity = 0.22;
+        setStatus("🌙 Moon Gravity enabled! Jump to float into the sky!");
+        return;
+      }
+      if (text.includes("normal") || text.includes("reset")) {
+        player.scale = 1;
+        player.speed = 4.2;
+        player.jumpPower = -11;
+        player.hasJetpack = false;
+        player.hasBoat = false;
+        world.gravity = 0.55;
+        setStatus("🔄 Returned to normal!");
         return;
       }
 
-      const template = ASSET_LIBRARY[matchedKey];
-      const size = 54 * scale;
+      // 3. World & Weather Magic
+      if (text.includes("freeze") || text.includes("ice")) {
+        world.riverFrozen = true;
+        setStatus("❄️ Whoosh! You froze the river solid—walk right across!");
+        return;
+      }
+      if (text.includes("rain") && !text.includes("rainbow")) {
+        world.weather = "rain";
+        setStatus("🌧️ You summoned a cozy rainstorm!");
+        return;
+      }
+      if (text.includes("snow")) {
+        world.weather = "snow";
+        world.riverFrozen = true;
+        setStatus("🌨️ Snowfall! The river froze over too!");
+        return;
+      }
+      if (text.includes("rainbow")) {
+        world.weather = "rainbow";
+        setStatus("🌈 A giant magical rainbow appeared in the sky!");
+        return;
+      }
 
-      worldObjects.push({
-        name: matchedKey,
-        emoji: template.emoji,
-        color: template.color,
-        x: 100 + Math.random() * (canvas.width - 200),
-        y: 60,
-        vx: (Math.random() - 0.5) * 3,
+      // 4. Interacting with the Grumpy Guard (at x = 710)
+      if (text.includes("guard") || text.includes("pizza") || text.includes("cake") ||
+          text.includes("food") || text.includes("donut") || text.includes("gift") ||
+          text.includes("music") || text.includes("dance") || text.includes("friend")) {
+        world.guardHappy = true;
+        spawnParticles(725, 360, "#06d6a0", 25);
+        setStatus("🥳 The Guard loved that! He stepped aside to let you pass!");
+        return;
+      }
+
+      // 5. Building Bridges, Platforms & Trampolines
+      if (text.includes("bridge") || text.includes("plank") || text.includes("road")) {
+        props.push({
+          type: "bridge",
+          label: raw,
+          x: 265, y: 382, w: 165, h: 16,
+          vx: 0, vy: 0, solid: true, bouncy: false, color: "#dda15e"
+        });
+        setStatus(`🌉 Built "${raw}" across the river!`);
+        return;
+      }
+      if (text.includes("trampoline") || text.includes("spring") || text.includes("bouncy") || text.includes("bounce")) {
+        props.push({
+          type: "trampoline",
+          label: "BOUNCE",
+          x: player.x + 45, y: 320, w: 70, h: 22,
+          vx: 0, vy: 0, solid: true, bouncy: true, color: "#06d6a0"
+        });
+        setStatus("🎪 Summoned a super-bouncy Trampoline! Jump on it!");
+        return;
+      }
+      if (text.includes("stairs") || text.includes("ladder") || text.includes("tower") || text.includes("platform")) {
+        props.push({
+          type: "platform",
+          label: raw,
+          x: player.x + 40, y: player.y - 20, w: 95, h: 20,
+          vx: 0, vy: 0, solid: true, bouncy: false, color: "#f4a261"
+        });
+        setStatus(`🪜 Created a floating "${raw}" you can jump onto!`);
+        return;
+      }
+
+      // 6. Universal "Create Anything" Physical Invention Generator
+      // Any safe noun/phrase becomes a real physics object you can stand on or push!
+      const colors = ["#ff9f1c", "#2ec4b6", "#e71d36", "#ffbf69", "#9b5de5", "#00bbf9"];
+      const randomColor = colors[Math.floor(Math.random() * colors.length)];
+      const cleanName = raw.replace(/^(spawn|create|make|summon|give me|a|an|the)\s+/i, "");
+
+      if (props.length > 25) props.shift();
+
+      props.push({
+        type: "box",
+        label: cleanName.slice(0, 14),
+        x: player.x + 50,
+        y: player.y - 30,
+        w: Math.max(58, Math.min(130, cleanName.length * 10)),
+        h: 44,
+        vx: 0,
         vy: 0,
-        size: size,
-        bounce: isBouncy ? 1.2 : template.bounce,
-        float: isFloating || template.float
+        solid: true,
+        bouncy: text.includes("rubber") || text.includes("jelly") || text.includes("ball"),
+        color: randomColor
       });
 
-      statusBar.classList.remove("potato-error");
-      statusBar.textContent = `✨ Summoned a ${scale > 1 ? "giant " : scale < 1 ? "tiny " : ""}${matchedKey}!`;
-    }
-
-    // Handle form submission
-    commandForm.addEventListener("submit", (e) => {
-      e.preventDefault();
-      processCommand(commandInput.value);
-      commandInput.value = "";
+      setStatus(`✨ Poof! Created "${cleanName}"! You can push it or jump on top of it!`);
     });
 
-    // Physics & Sticker Rendering Loop
-    function updateAndDraw() {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    // Solid Platforms in the World
+    const terrain = [
+      { x: 0, y: 390, w: 270, h: 70, color: "#52b788" },   // Left Grasslands
+      { x: 425, y: 390, w: 475, h: 70, color: "#52b788" }, // Right Grasslands
+      { x: 510, y: 220, w: 140, h: 24, color: "#8d99ae" }  // High Cliff Ledge
+    ];
 
-      // Draw ground line
-      ctx.fillStyle = "#8ac926";
-      ctx.fillRect(0, canvas.height - 24, canvas.width, 24);
-      ctx.strokeStyle = "#2b2d42";
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.moveTo(0, canvas.height - 24);
-      ctx.lineTo(canvas.width, canvas.height - 24);
-      ctx.stroke();
+    function rectsOverlap(a, b) {
+      return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+    }
 
-      for (const obj of worldObjects) {
-        // Apply gravity unless floating
-        if (!obj.float) {
-          obj.vy += 0.45;
+    function update() {
+      const pw = player.w * player.scale;
+      const ph = player.h * player.scale;
+
+      // Horizontal movement
+      if (keys["arrowleft"] || keys["a"]) player.vx = -player.speed;
+      else if (keys["arrowright"] || keys["d"]) player.vx = player.speed;
+      else player.vx *= 0.8;
+
+      // Jump / Jetpack
+      if (keys["arrowup"] || keys["w"] || keys[" "]) {
+        if (player.hasJetpack) {
+          player.vy = -5.5;
+          spawnParticles(player.x + pw / 2, player.y + ph, "#ff9f1c", 2);
+        } else if (player.onGround) {
+          player.vy = player.jumpPower;
+          player.onGround = false;
+        }
+      }
+
+      player.vy += world.gravity;
+      player.x += player.vx;
+      player.y += player.vy;
+      player.onGround = false;
+
+      // Screen bounds
+      if (player.x < 0) player.x = 0;
+      if (player.x + pw > canvas.width) player.x = canvas.width - pw;
+
+      // Grumpy Guard Blocking Logic (x = 710)
+      if (!world.guardHappy && player.x + pw > 705 && player.x < 745 && player.y + ph > 330) {
+        player.x = 705 - pw;
+        setStatus("😠 Guard: 'Halt! Bring me food, music, or a gift to pass!'");
+      }
+
+      // Terrain Collisions
+      const allSolids = [...terrain, ...props];
+      if (world.riverFrozen) {
+        allSolids.push({ x: 270, y: 390, w: 155, h: 70 });
+      }
+
+      for (const plat of allSolids) {
+        const pBox = { x: player.x, y: player.y, w: pw, h: ph };
+        if (rectsOverlap(pBox, plat)) {
+          // Landing on top
+          if (player.vy > 0 && player.y + ph - player.vy <= plat.y + 12) {
+            player.y = plat.y - ph;
+            if (plat.bouncy) {
+              player.vy = -17.5;
+              spawnParticles(player.x + pw / 2, plat.y, "#06d6a0", 12);
+            } else {
+              player.vy = 0;
+              player.onGround = true;
+            }
+          }
+        }
+      }
+
+      // River Water Check (x: 270 to 425, y > 395)
+      if (!world.riverFrozen && player.x + pw > 275 && player.x < 420 && player.y + ph > 400) {
+        if (player.hasBoat) {
+          player.y = 396 - ph;
+          player.vy = 0;
+          player.onGround = true;
         } else {
-          obj.vy = Math.sin(Date.now() / 300) * 0.6;
+          // Splash back to shore!
+          player.x = 220;
+          player.y = 320;
+          player.vy = 0;
+          spawnParticles(340, 400, "#48cae4", 20);
+          setStatus("💦 Splash! Try typing 'build a bridge', 'boat', or 'freeze river'!");
+        }
+      }
+
+      // Update Spawned Props Physics
+      for (const prop of props) {
+        if (prop.type === "bridge" || prop.type === "platform") continue;
+        prop.vy += world.gravity;
+        prop.y += prop.vy;
+
+        // Pushable by player
+        const pBox = { x: player.x, y: player.y, w: pw, h: ph };
+        if (rectsOverlap(pBox, prop) && player.y + ph > prop.y + 10) {
+          prop.x += player.vx * 0.8;
         }
 
-        obj.x += obj.vx;
-        obj.y += obj.vy;
-        obj.vx *= 0.99;
-
-        // Ground collision
-        const floorY = canvas.height - 24 - obj.size / 2;
-        if (obj.y > floorY) {
-          obj.y = floorY;
-          obj.vy = -obj.vy * obj.bounce;
-          if (Math.abs(obj.vy) < 1) obj.vy = 0;
+        for (const plat of terrain) {
+          if (rectsOverlap(prop, plat) && prop.vy > 0) {
+            prop.y = plat.y - prop.h;
+            prop.vy = 0;
+          }
         }
+      }
 
-        // Wall collision
-        if (obj.x < obj.size / 2) { obj.x = obj.size / 2; obj.vx *= -0.8; }
-        if (obj.x > canvas.width - obj.size / 2) { obj.x = canvas.width - obj.size / 2; obj.vx *= -0.8; }
+      // Star Collection
+      for (const star of stars) {
+        if (!star.collected) {
+          const dist = Math.hypot(player.x + pw / 2 - star.x, player.y + ph / 2 - star.y);
+          if (dist < 38) {
+            star.collected = true;
+            world.stars++;
+            starEl.textContent = world.stars;
+            spawnParticles(star.x, star.y, "#ffd166", 30);
+            if (world.stars === 3) {
+              setStatus("🏆 YOU COLLECTED ALL 3 STARS! Keep wishing & exploring!");
+            } else {
+              setStatus(`⭐ Awesome! You found a Star (${world.stars}/3)!`);
+            }
+          }
+        }
+      }
 
-        // Draw sticker card
-        ctx.save();
-        ctx.translate(obj.x, obj.y);
-        ctx.fillStyle = obj.color;
-        ctx.strokeStyle = "#2b2d42";
-        ctx.lineWidth = 3;
+      // Particles
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const pt = particles[i];
+        pt.x += pt.vx;
+        pt.y += pt.vy;
+        pt.life--;
+        if (pt.life <= 0) particles.splice(i, 1);
+      }
+    }
+
+    function draw() {
+      // Sky
+      ctx.fillStyle = world.weather === "rain" ? "#4a5759" : "#8ecae6";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Sun or Rainbow
+      if (world.weather === "rainbow") {
+        const rainbowColors = ["#ff595e", "#ffca3a", "#8ac926", "#1982c4", "#6a4c93"];
+        rainbowColors.forEach((col, i) => {
+          ctx.strokeStyle = col;
+          ctx.lineWidth = 10;
+          ctx.beginPath();
+          ctx.arc(450, 390, 280 - i * 10, Math.PI, 0);
+          ctx.stroke();
+        });
+      } else {
+        ctx.fillStyle = "#ffd166";
         ctx.beginPath();
-        ctx.roundRect(-obj.size / 2, -obj.size / 2, obj.size, obj.size, 12);
+        ctx.arc(810, 70, 36, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // River
+      ctx.fillStyle = world.riverFrozen ? "#caf0f8" : "#0096c7";
+      ctx.fillRect(270, 400, 155, 60);
+      if (world.riverFrozen) {
+        ctx.fillStyle = "#fff";
+        ctx.font = "bold 12px sans-serif";
+        ctx.fillText("❄️ FROZEN ICE ❄️", 295, 425);
+      }
+
+      // Terrain
+      for (const plat of terrain) {
+        ctx.fillStyle = plat.color;
+        ctx.fillRect(plat.x, plat.y, plat.w, plat.h);
+        ctx.fillStyle = "#2d6a4f";
+        ctx.fillRect(plat.x, plat.y, plat.w, 8);
+      }
+
+      // Draw Grumpy / Happy Guard
+      ctx.fillStyle = world.guardHappy ? "#06d6a0" : "#e63946";
+      ctx.fillRect(710, 342, 32, 48);
+      ctx.fillStyle = "#1d3557";
+      ctx.fillRect(706, 332, 40, 12); // Guard Hat
+      ctx.fillStyle = "#fff";
+      ctx.font = "11px sans-serif";
+      ctx.fillText(world.guardHappy ? "😄 Yay!" : "😠 Halt!", 706, 324);
+
+      // Draw Spawned Props
+      for (const prop of props) {
+        ctx.fillStyle = prop.color;
+        ctx.strokeStyle = "#1e1e2e";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.roundRect(prop.x, prop.y, prop.w, prop.h, 8);
         ctx.fill();
         ctx.stroke();
 
-        // Draw emoji icon
-        ctx.font = `${Math.floor(obj.size * 0.6)}px sans-serif`;
+        ctx.fillStyle = "#fff";
+        ctx.font = "bold 11px sans-serif";
         ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        ctx.fillText(obj.emoji, 0, 2);
-        ctx.restore();
+        ctx.fillText(prop.label, prop.x + prop.w / 2, prop.y + prop.h / 2 + 4);
+        ctx.textAlign = "left";
       }
 
-      requestAnimationFrame(updateAndDraw);
+      // Draw Stars
+      for (const star of stars) {
+        if (!star.collected) {
+          const bob = Math.sin(Date.now() / 250) * 5;
+          ctx.font = "28px sans-serif";
+          ctx.fillText("⭐", star.x - 14, star.y + bob);
+        }
+      }
+
+      // Draw Player
+      const pw = player.w * player.scale;
+      const ph = player.h * player.scale;
+
+      // Boat under player if active
+      if (player.hasBoat) {
+        ctx.fillStyle = "#bc6c25";
+        ctx.beginPath();
+        ctx.arc(player.x + pw / 2, player.y + ph - 4, pw * 0.8, 0, Math.PI);
+        ctx.fill();
+      }
+
+      // Jetpack on back if active
+      if (player.hasJetpack) {
+        ctx.fillStyle = "#adb5bd";
+        ctx.fillRect(player.x - 6, player.y + 8, 8, ph * 0.6);
+      }
+
+      // Body
+      ctx.fillStyle = player.color;
+      ctx.beginPath();
+      ctx.roundRect(player.x, player.y, pw, ph, 8);
+      ctx.fill();
+
+      // Eyes
+      ctx.fillStyle = "#fff";
+      ctx.fillRect(player.x + pw * 0.55, player.y + ph * 0.2, 6, 6);
+
+      // Weather Effects
+      if (world.weather === "rain" || world.weather === "snow") {
+        ctx.fillStyle = world.weather === "rain" ? "#90e0ef" : "#ffffff";
+        for (let i = 0; i < 45; i++) {
+          const rx = (Date.now() * 0.2 + i * 73) % canvas.width;
+          const ry = (Date.now() * (world.weather === "rain" ? 0.6 : 0.2) + i * 41) % canvas.height;
+          ctx.fillRect(rx, ry, world.weather === "rain" ? 2 : 4, world.weather === "rain" ? 10 : 4);
+        }
+      }
+
+      // Particles
+      for (const pt of particles) {
+        ctx.fillStyle = pt.color;
+        ctx.fillRect(pt.x, pt.y, 5, 5);
+      }
     }
 
-    updateAndDraw();
+    function loop() {
+      update();
+      draw();
+      requestAnimationFrame(loop);
+    }
+
+    loop();
   </script>
 </body>
 </html>
