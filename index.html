@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Doodlewish: Web Sandbox</title>
+  <style>
+    * { box-sizing: border-box; font-family: 'Comic Sans MS', 'Segoe UI', sans-serif; }
+    body {
+      margin: 0;
+      background-color: #fdfbf7;
+      background-image: linear-gradient(#e5e5f7 1px, transparent 1px), linear-gradient(90deg, #e5e5f7 1px, transparent 1px);
+      background-size: 24px 24px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      height: 100vh;
+      overflow: hidden;
+    }
+    header {
+      padding: 12px 20px;
+      text-align: center;
+    }
+    h1 { margin: 0; font-size: 1.6rem; color: #2b2d42; }
+    #status-bar {
+      margin-top: 6px;
+      padding: 8px 16px;
+      border-radius: 12px;
+      background: #ffffff;
+      border: 2px solid #2b2d42;
+      font-weight: bold;
+      color: #2b2d42;
+      min-width: 320px;
+      text-align: center;
+      box-shadow: 3px 3px 0px #2b2d42;
+    }
+    .potato-error {
+      background: #ffe5e5 !important;
+      color: #d90429 !important;
+      border-color: #d90429 !important;
+      animation: shake 0.3s ease-in-out;
+    }
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      25% { transform: translateX(-6px); }
+      75% { transform: translateX(6px); }
+    }
+    canvas {
+      border: 3px solid #2b2d42;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.7);
+      box-shadow: 5px 5px 0px #2b2d42;
+      margin: 10px 0;
+    }
+    #controls {
+      display: flex;
+      gap: 10px;
+      width: 90%;
+      max-width: 700px;
+      margin-bottom: 16px;
+    }
+    input {
+      flex: 1;
+      padding: 12px 16px;
+      font-size: 1rem;
+      border: 3px solid #2b2d42;
+      border-radius: 10px;
+      outline: none;
+    }
+    button {
+      padding: 12px 20px;
+      font-size: 1rem;
+      font-weight: bold;
+      background: #ffd166;
+      border: 3px solid #2b2d42;
+      border-radius: 10px;
+      cursor: pointer;
+      box-shadow: 3px 3px 0px #2b2d42;
+    }
+    button:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0px #2b2d42; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>✏️ Doodlewish Sandbox</h1>
+    <div id="status-bar">Type a wish! Try: "Spawn a giant bouncy duck" or "Create a floating pancake"</div>
+  </header>
+
+  <canvas id="gameCanvas" width="760" height="420"></canvas>
+
+  <form id="controls">
+    <input type="text" id="commandInput" placeholder="What do you want to create?" autocomplete="off" />
+    <button type="submit">Wish ✨</button>
+  </form>
+
+  <script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+    const statusBar = document.getElementById("status-bar");
+    const commandForm = document.getElementById("controls");
+    const commandInput = document.getElementById("commandInput");
+
+    // 1. Restricted words that trigger the Potato Error
+    const BANNED_WORDS = ["destroy", "hurt", "hack", "infinite", "cheat", "crash", "steal", "attack"];
+
+    // 2. Built-in Modular Asset Library (Zero external files needed!)
+    const ASSET_LIBRARY = {
+      duck:       { emoji: "🦆", color: "#ffd166", bounce: 0.75, float: false },
+      pancake:    { emoji: "🥞", color: "#f4a261", bounce: 0.30, float: false },
+      trampoline: { emoji: "🎪", color: "#4cc9f0", bounce: 1.35, float: false },
+      rock:       { emoji: "🪨", color: "#adb5bd", bounce: 0.10, float: false },
+      cloud:      { emoji: "☁️", color: "#e0fbfc", bounce: 0.50, float: true  },
+      bridge:     { emoji: "🌉", color: "#dda15e", bounce: 0.20, float: true  },
+      star:       { emoji: "⭐", color: "#fee440", bounce: 0.90, float: true  }
+    };
+
+    const worldObjects = [];
+
+    // Trigger the required Potato Error
+    function triggerPotatoError() {
+      statusBar.textContent = "🥔 POTATO ERROR: That action is not allowed.";
+      statusBar.classList.remove("potato-error");
+      void statusBar.offsetWidth; // Restart CSS shake animation
+      statusBar.classList.add("potato-error");
+    }
+
+    // Parse natural language commands
+    function processCommand(rawText) {
+      const text = rawText.toLowerCase().trim();
+      if (!text) return;
+
+      // Safety & rule check
+      for (const badWord of BANNED_WORDS) {
+        if (text.includes(badWord)) {
+          triggerPotatoError();
+          return;
+        }
+      }
+
+      // Limit max objects so players can't lag the browser
+      if (worldObjects.length >= 30) {
+        worldObjects.shift();
+      }
+
+      // Detect modifiers
+      let scale = 1.0;
+      if (text.includes("giant") || text.includes("huge") || text.includes("big")) scale = 1.8;
+      if (text.includes("tiny") || text.includes("small") || text.includes("mini")) scale = 0.6;
+
+      const isBouncy = text.includes("bouncy") || text.includes("spring");
+      const isFloating = text.includes("floating") || text.includes("flying");
+
+      // Match asset from library
+      let matchedKey = null;
+      for (const key of Object.keys(ASSET_LIBRARY)) {
+        if (text.includes(key)) {
+          matchedKey = key;
+          break;
+        }
+      }
+
+      if (!matchedKey) {
+        triggerPotatoError();
+        return;
+      }
+
+      const template = ASSET_LIBRARY[matchedKey];
+      const size = 54 * scale;
+
+      worldObjects.push({
+        name: matchedKey,
+        emoji: template.emoji,
+        color: template.color,
+        x: 100 + Math.random() * (canvas.width - 200),
+        y: 60,
+        vx: (Math.random() - 0.5) * 3,
+        vy: 0,
+        size: size,
+        bounce: isBouncy ? 1.2 : template.bounce,
+        float: isFloating || template.float
+      });
+
+      statusBar.classList.remove("potato-error");
+      statusBar.textContent = `✨ Summoned a ${scale > 1 ? "giant " : scale < 1 ? "tiny " : ""}${matchedKey}!`;
+    }
+
+    // Handle form submission
+    commandForm.addEventListener("submit", (e) => {
+      e.preventDefault();
+      processCommand(commandInput.value);
+      commandInput.value = "";
+    });
+
+    // Physics & Sticker Rendering Loop
+    function updateAndDraw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Draw ground line
+      ctx.fillStyle = "#8ac926";
+      ctx.fillRect(0, canvas.height - 24, canvas.width, 24);
+      ctx.strokeStyle = "#2b2d42";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(0, canvas.height - 24);
+      ctx.lineTo(canvas.width, canvas.height - 24);
+      ctx.stroke();
+
+      for (const obj of worldObjects) {
+        // Apply gravity unless floating
+        if (!obj.float) {
+          obj.vy += 0.45;
+        } else {
+          obj.vy = Math.sin(Date.now() / 300) * 0.6;
+        }
+
+        obj.x += obj.vx;
+        obj.y += obj.vy;
+        obj.vx *= 0.99;
+
+        // Ground collision
+        const floorY = canvas.height - 24 - obj.size / 2;
+        if (obj.y > floorY) {
+          obj.y = floorY;
+          obj.vy = -obj.vy * obj.bounce;
+          if (Math.abs(obj.vy) < 1) obj.vy = 0;
+        }
+
+        // Wall collision
+        if (obj.x < obj.size / 2) { obj.x = obj.size / 2; obj.vx *= -0.8; }
+        if (obj.x > canvas.width - obj.size / 2) { obj.x = canvas.width - obj.size / 2; obj.vx *= -0.8; }
+
+        // Draw sticker card
+        ctx.save();
+        ctx.translate(obj.x, obj.y);
+        ctx.fillStyle = obj.color;
+        ctx.strokeStyle = "#2b2d42";
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.roundRect(-obj.size / 2, -obj.size / 2, obj.size, obj.size, 12);
+        ctx.fill();
+        ctx.stroke();
+
+        // Draw emoji icon
+        ctx.font = `${Math.floor(obj.size * 0.6)}px sans-serif`;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(obj.emoji, 0, 2);
+        ctx.restore();
+      }
+
+      requestAnimationFrame(updateAndDraw);
+    }
+
+    updateAndDraw();
+  </script>
+</body>
+</html>
